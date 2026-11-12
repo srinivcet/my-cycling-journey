@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#16a34a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Cycling" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <title>My Cycling Journey</title>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="top-row">
+    <div>
+      <h1 id="greeting">Good morning, Srinivasan</h1>
+      <div class="subtitle" id="header-date"></div>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
+  </div>
+</header>
+
+<!-- HOME -->
+<section class="view active" id="view-home">
+  <div class="card">
+    <div class="progress-ring">
+      <svg class="ring-svg" viewBox="0 0 100 100">
+        <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
+        <circle class="ring-fg" id="today-ring" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="264"></circle>
+      </svg>
+      <div class="ring-label">
+        <div class="pct" id="today-pct">0%</div>
+        <div class="pct-sub"><span id="today-done">0</span> / <span id="today-target">15</span> min today</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="icon">📅</div>
+      <div class="stat-label">This Week</div>
+      <div class="stat-value" id="week-minutes">0</div>
+      <div class="stat-sub">minutes</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">🚴</div>
+      <div class="stat-label">Total Sessions</div>
+      <div class="stat-value" id="total-sessions">0</div>
+      <div class="stat-sub">rides</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">📍</div>
+      <div class="stat-label">Total Distance</div>
+      <div class="stat-value" id="total-distance">0.0</div>
+      <div class="stat-sub">km</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon">⚖️</div>
+      <div class="stat-label">Weight</div>
+      <div class="stat-value" id="current-weight-display">--</div>
+      <div class="stat-sub" id="weight-change-display">kg</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🔥 Current Streak</h3>
+    <div class="flex-between">
+      <div>
+        <span class="streak-flame" id="streak-flame">🔥</span>
+        <span style="font-size: 28px; font-weight: 700; margin-left: 8px;" id="streak-days">0</span>
+        <span class="text-muted">days</span>
+      </div>
+      <div class="text-muted" style="font-size: 12px; text-align: right;">
+        <div>Keep it up!</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🎯 Next Milestone</h3>
+    <div class="flex-between">
+      <div class="text-muted" id="milestone-text">First Ride</div>
+      <div style="font-weight: 600;" id="milestone-progress">0 / 1</div>
+    </div>
+    <div class="milestone-bar"><div class="milestone-fill" id="milestone-fill" style="width:0%"></div></div>
+  </div>
+
+  <div class="card">
+    <h3>📊 Weekly Activity</h3>
+    <div class="chart-wrap"><canvas id="week-chart"></canvas></div>
+  </div>
+
+  <div class="motivational-quote" id="daily-quote">The journey of a thousand kilometres begins with a single pedal stroke.</div>
+
+  <div class="section-title">Quick Actions</div>
+  <button class="btn btn-primary btn-xl btn-full" onclick="App.switchView('cycling')">🚴 Start Cycling</button>
+</section>
+
+<!-- CYCLING -->
+<section class="view" id="view-cycling">
+  <div id="cycling-idle">
+    <div class="card">
+      <h3>🚴 Today's Target</h3>
+      <div class="value" id="target-display">15 minutes</div>
+      <div class="text-muted mt-2" id="week-info">Week 1 of 4-week programme</div>
+    </div>
+
+    <div class="segmented" id="ride-type-toggle">
+      <button class="active" data-type="gps">📍 GPS Ride</button>
+      <button data-type="manual">⌨️ Manual</button>
+    </div>
+
+    <div id="gps-mode">
+      <div class="gps-status" id="gps-status"><span class="gps-dot"></span><span id="gps-status-text">GPS ready. Tap Start to begin.</span></div>
+      <button class="btn btn-primary btn-xl btn-full" id="start-gps-btn">▶️ Start Ride</button>
+      <p class="text-muted text-center mt-2" style="font-size:12px">Permission will be requested when you tap Start.</p>
+    </div>
+
+    <div id="manual-mode" class="hidden">
+      <button class="btn btn-primary btn-xl btn-full" id="start-manual-btn">▶️ Start Timer</button>
+      <p class="text-muted text-center mt-2" style="font-size:12px">Manual mode — enter distance when you finish.</p>
+    </div>
+
+    <div class="section-title">Recent Rides</div>
+    <div class="card" id="recent-rides-list">
+      <div class="empty"><span class="emoji">🚴</span>No rides yet. Your first ride is one tap away.</div>
+    </div>
+  </div>
+
+  <!-- Active ride panel -->
+  <div id="cycling-active" class="hidden">
+    <div id="gps-status" class="gps-status good"><span class="gps-dot"></span><span id="live-gps-text">Acquiring GPS…</span></div>
+
+    <div class="live-stats">
+      <div class="live-stat full">
+        <div class="lbl">Current Speed</div>
+        <div class="huge"><span id="live-speed">0.0</span></div>
+        <div class="unit">km/h</div>
+      </div>
+      <div class="live-stat">
+        <div class="lbl">Distance</div>
+        <div class="big"><span id="live-distance">0.00</span></div>
+        <div class="unit">km</div>
+      </div>
+      <div class="live-stat">
+        <div class="lbl">Duration</div>
+        <div class="big"><span id="live-duration">00:00:00</span></div>
+        <div class="unit">hh:mm:ss</div>
+      </div>
+      <div class="live-stat">
+        <div class="lbl">Avg Speed</div>
+        <div class="big"><span id="live-avg">0.0</span></div>
+        <div class="unit">km/h</div>
+      </div>
+      <div class="live-stat">
+        <div class="lbl">Max Speed</div>
+        <div class="big"><span id="live-max">0.0</span></div>
+        <div class="unit">km/h</div>
+      </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="btn-group">
+      <button class="btn btn-warning btn-lg" style="flex:1" id="pause-btn">⏸️ Pause</button>
+      <button class="btn btn-primary btn-lg hidden" style="flex:1" id="resume-btn">▶️ Resume</button>
+      <button class="btn btn-danger btn-lg" style="flex:1" id="stop-btn">⏹️ Stop & Save</button>
+    </div>
+
+    <p class="text-muted text-center mt-2" style="font-size:12px">Please keep your phone with the screen on for reliable tracking. Stay safe — don't operate your phone while riding.</p>
+  </div>
+
+  <!-- Manual timer -->
+  <div id="manual-active" class="hidden">
+    <div class="live-stats">
+      <div class="live-stat full">
+        <div class="lbl">Duration</div>
+        <div class="huge"><span id="manual-duration">00:00</span></div>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-warning btn-lg" style="flex:1" id="manual-pause-btn">⏸️ Pause</button>
+      <button class="btn btn-primary btn-lg hidden" style="flex:1" id="manual-resume-btn">▶️ Resume</button>
+      <button class="btn btn-danger btn-lg" style="flex:1" id="manual-stop-btn">⏹️ Stop & Save</button>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRESS -->
+<section class="view" id="view-progress">
+  <div class="segmented" id="report-period">
+    <button class="active" data-period="week">Week</button>
+    <button data-period="month">Month</button>
+    <button data-period="all">All</button>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-label">Sessions</div><div class="stat-value" id="rp-sessions">0</div></div>
+    <div class="stat-card"><div class="stat-label">Total Duration</div><div class="stat-value" id="rp-duration">0</div><div class="stat-sub">minutes</div></div>
+    <div class="stat-card"><div class="stat-label">Total Distance</div><div class="stat-value" id="rp-distance">0.0</div><div class="stat-sub">km</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Speed</div><div class="stat-value" id="rp-avg">0.0</div><div class="stat-sub">km/h</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Duration (minutes)</h3>
+    <div class="chart-wrap tall"><canvas id="progress-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h3>Weight Progress</h3>
+    <div class="chart-wrap tall"><canvas id="weight-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h3>Consistency</h3>
+    <div class="flex-between">
+      <span>Rides this week</span>
+      <span style="font-weight:600" id="consistency-week">0 / 5</span>
+    </div>
+    <div class="milestone-bar mt-2"><div class="milestone-fill" id="consistency-fill" style="width:0%"></div></div>
+  </div>
+
+  <div class="card">
+    <h3>Ride History</h3>
+    <div id="ride-history-list"><div class="empty">No rides yet.</div></div>
+  </div>
+</section>
+
+<!-- HEALTH -->
+<section class="view" id="view-health">
+  <div class="segmented" id="health-tab">
+    <button class="active" data-tab="water">💧 Water</button>
+    <button data-tab="weight">⚖️ Weight</button>
+    <button data-tab="recovery">🛌 Recovery</button>
+    <button data-tab="gratitude">🙏 Journal</button>
+  </div>
+
+  <!-- Water -->
+  <div id="health-water">
+    <div class="card">
+      <h3>Today's Water Intake</h3>
+      <div class="progress-ring">
+        <svg class="ring-svg" viewBox="0 0 100 100">
+          <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
+          <circle class="ring-fg" id="water-ring" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="264" style="stroke:#3b82f6"></circle>
+        </svg>
+        <div class="ring-label">
+          <div class="pct" style="color:#3b82f6"><span id="water-done">0</span> ml</div>
+          <div class="pct-sub">of <span id="water-target">2500</span> ml</div>
+        </div>
+      </div>
+      <div class="btn-group mt-4">
+        <button class="btn btn-secondary" onclick="App.addWater(250)">+250 ml</button>
+        <button class="btn btn-secondary" onclick="App.addWater(500)">+500 ml</button>
+        <button class="btn btn-secondary" onclick="App.addCustomWater()">+ Custom</button>
+      </div>
+      <div class="water-grid" id="water-glasses"></div>
+      <div class="mt-4 flex-between">
+        <span class="text-muted">Daily target (ml)</span>
+        <input type="number" id="water-target-input" style="width:100px; padding:6px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text)" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Weight -->
+  <div id="health-weight" class="hidden">
+    <div class="card">
+      <h3>Weight Overview</h3>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Starting</div><div class="stat-value" id="w-start">--</div><div class="stat-sub">kg</div></div>
+        <div class="stat-card"><div class="stat-label">Current</div><div class="stat-value" id="w-current">--</div><div class="stat-sub">kg</div></div>
+        <div class="stat-card"><div class="stat-label">Target</div><div class="stat-value" id="w-target">--</div><div class="stat-sub">kg</div></div>
+        <div class="stat-card"><div class="stat-label">Change</div><div class="stat-value" id="w-change">--</div><div class="stat-sub">kg</div></div>
+      </div>
+      <div class="flex-between mt-2">
+        <span class="text-muted">BMI</span>
+        <span style="font-weight:600" id="w-bmi">--</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Log Weight</h3>
+      <div class="input-row">
+        <label>Weight (kg)</label>
+        <input type="number" id="log-weight" step="0.1" placeholder="e.g. 72.5" />
+      </div>
+      <button class="btn btn-primary btn-full" onclick="App.logWeight()">Save Weight</button>
+    </div>
+
+    <div class="card">
+      <h3>Weight History</h3>
+      <div id="weight-history-list"><div class="empty">No entries yet.</div></div>
+    </div>
+  </div>
+
+  <!-- Recovery -->
+  <div id="health-recovery" class="hidden">
+    <div class="card">
+      <h3>Today's Check-in</h3>
+      <div class="input-row">
+        <label>Sleep (hours)</label>
+        <input type="number" id="r-sleep" step="0.5" placeholder="e.g. 7" />
+      </div>
+      <div class="input-row">
+        <label>Morning energy</label>
+        <div class="pill-group" id="r-energy-pills">
+          <button class="pill" data-val="1">Low</button>
+          <button class="pill" data-val="2">OK</button>
+          <button class="pill" data-val="3">Good</button>
+          <button class="pill" data-val="4">High</button>
+        </div>
+      </div>
+      <div class="input-row">
+        <label>Muscle soreness</label>
+        <div class="pill-group" id="r-soreness-pills">
+          <button class="pill" data-val="0">None</button>
+          <button class="pill" data-val="1">Mild</button>
+          <button class="pill" data-val="2">Moderate</button>
+          <button class="pill" data-val="3">High</button>
+        </div>
+      </div>
+      <div class="input-row">
+        <label>Knee / thigh discomfort</label>
+        <div class="pill-group" id="r-pain-pills">
+          <button class="pill" data-val="none">None</button>
+          <button class="pill" data-val="mild">Mild</button>
+          <button class="pill" data-val="mod">Moderate</button>
+          <button class="pill" data-val="severe">Severe</button>
+        </div>
+      </div>
+      <div class="input-row">
+        <label>Fitness notes</label>
+        <textarea id="r-notes" placeholder="How did your body feel today?"></textarea>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="App.saveRecovery()">Save Check-in</button>
+    </div>
+    <div class="card">
+      <p class="text-muted" style="line-height:1.5"><strong>⚠️ Safety reminder:</strong> If you have moderate or severe pain, take a rest day. Never cycle through sharp pain. Consult a doctor for persistent discomfort.</p>
+    </div>
+  </div>
+
+  <!-- Gratitude -->
+  <div id="health-gratitude" class="hidden">
+    <div class="card">
+      <h3>Today's Gratitude</h3>
+      <div class="input-row">
+        <label id="gratitude-date">Today</label>
+        <textarea id="gratitude-text" placeholder="What are you grateful for today?"></textarea>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="App.saveGratitude()">Save Entry</button>
+    </div>
+    <div class="card">
+      <h3>Past Entries</h3>
+      <div id="gratitude-list"><div class="empty">No entries yet.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section class="view" id="view-settings">
+  <div class="card">
+    <h3>👤 Profile</h3>
+    <div class="input-row"><label>Name</label><input type="text" id="s-name" /></div>
+    <div class="input-row"><label>Height (cm)</label><input type="number" id="s-height" /></div>
+    <div class="input-row"><label>Starting weight (kg)</label><input type="number" id="s-start-weight" step="0.1" /></div>
+    <div class="input-row"><label>Target weight (kg)</label><input type="number" id="s-target-weight" step="0.1" /></div>
+    <button class="btn btn-primary btn-full" onclick="App.saveProfile()">Save Profile</button>
+  </div>
+
+  <div class="card">
+    <h3>🚴 Cycling Programme</h3>
+    <div class="input-row"><label>Week 1 target (min)</label><input type="number" id="s-w1" /></div>
+    <div class="input-row"><label>Week 2 target (min)</label><input type="number" id="s-w2" /></div>
+    <div class="input-row"><label>Week 3 target (min)</label><input type="number" id="s-w3" /></div>
+    <div class="input-row"><label>Week 4 target (min)</label><input type="number" id="s-w4" /></div>
+    <div class="input-row"><label>Days per week</label><input type="number" id="s-days" min="1" max="7" /></div>
+    <button class="btn btn-primary btn-full" onclick="App.saveProgramme()">Save Programme</button>
+  </div>
+
+  <div class="card">
+    <h3>📍 GPS Settings</h3>
+    <div class="input-row">
+      <label>Reject GPS points with accuracy worse than (m)</label>
+      <input type="number" id="s-gps-accuracy" min="5" max="100" />
+    </div>
+    <button class="btn btn-primary btn-full" onclick="App.saveGpsSettings()">Save GPS Settings</button>
+  </div>
+
+  <div class="card">
+    <h3>🏆 Achievements</h3>
+    <div class="badge-grid" id="badges-grid"></div>
+  </div>
+
+  <div class="card">
+    <h3>💾 Backup & Restore</h3>
+    <div class="btn-group">
+      <button class="btn btn-secondary" style="flex:1" onclick="App.exportCsv()">📊 Export CSV</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="App.exportJson()">📦 Export JSON</button>
+    </div>
+    <div class="mt-2">
+      <input type="file" id="restore-file" accept=".json" style="display:none" onchange="App.restoreJson(event)" />
+      <button class="btn btn-secondary btn-full" onclick="document.getElementById('restore-file').click()">📥 Restore from JSON</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🔒 Privacy</h3>
+    <button class="btn btn-danger btn-full" onclick="App.deleteGpsHistory()">Delete all GPS route data</button>
+    <p class="text-muted mt-2" style="font-size:12px">This keeps your ride records but removes stored GPS coordinates.</p>
+  </div>
+
+  <div class="card">
+    <h3>⚠️ Danger Zone</h3>
+    <button class="btn btn-danger btn-full" onclick="App.resetApp()">Reset all data</button>
+  </div>
+
+  <div class="card text-center text-muted" style="font-size:12px">
+    My Cycling Journey v1.0 · Offline-first PWA · All data stored locally on your device.
+  </div>
+</section>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-item active" data-view="home"><span class="nav-icon">🏠</span>Home</button>
+  <button class="nav-item" data-view="cycling"><span class="nav-icon">🚴</span>Cycling</button>
+  <button class="nav-item" data-view="progress"><span class="nav-icon">📈</span>Progress</button>
+  <button class="nav-item" data-view="health"><span class="nav-icon">❤️</span>Health</button>
+  <button class="nav-item" data-view="settings"><span class="nav-icon">⚙️</span>Settings</button>
+</nav>
+
+<!-- Save ride modal -->
+<div class="modal-overlay hidden" id="save-modal">
+  <div class="modal-card">
+    <h3>Save Ride</h3>
+    <div class="input-row" id="distance-input-row">
+      <label>Distance (km)</label>
+      <input type="number" id="save-distance" step="0.01" placeholder="e.g. 4.5" />
+    </div>
+    <div class="input-row">
+      <label>Perceived effort</label>
+      <div class="pill-group" id="save-effort-pills">
+        <button class="pill active" data-val="easy">😌 Easy</button>
+        <button class="pill" data-val="moderate">💪 Moderate</button>
+        <button class="pill" data-val="hard">🔥 Hard</button>
+      </div>
+    </div>
+    <div class="input-row">
+      <label>Pain / discomfort</label>
+      <div class="pill-group" id="save-pain-pills">
+        <button class="pill active" data-val="none">None</button>
+        <button class="pill" data-val="mild">Mild</button>
+        <button class="pill" data-val="mod">Moderate</button>
+      </div>
+    </div>
+    <div class="input-row">
+      <label>Notes</label>
+      <textarea id="save-notes" placeholder="How did it feel?"></textarea>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" style="flex:1" onclick="App.cancelSave()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="App.confirmSave()">Save Ride</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ride detail modal -->
+<div class="modal-overlay hidden" id="ride-detail-modal">
+  <div class="modal-card">
+    <h3 id="rd-title">Ride Details</h3>
+    <div id="rd-body"></div>
+    <div id="history-map" class="hidden"></div>
+    <div class="btn-group mt-4">
+      <button class="btn btn-danger" style="flex:1" onclick="App.deleteSelectedRide()">🗑️ Delete</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="App.closeRideDetail()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="app.js"></script>
+</body>
+</html>
